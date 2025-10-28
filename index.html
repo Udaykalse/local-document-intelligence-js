@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🌤️ Weather Dashboard</h1>
+        </header>
+
+        <div class="search-section">
+            <div class="search-container">
+                <input type="text" id="city-input" placeholder="Enter city name...">
+                <button id="search-btn">Search</button>
+            </div>
+            <div id="recent-searches" class="recent-searches"></div>
+        </div>
+
+        <main>
+            <!-- Current Weather -->
+            <section id="current-weather" class="weather-card hidden">
+                <h2>Current Weather</h2>
+                <div class="weather-info">
+                    <div class="main-info">
+                        <h3 id="city-name"></h3>
+                        <div id="current-temp" class="temperature"></div>
+                        <div id="weather-description" class="description"></div>
+                    </div>
+                    <div class="details">
+                        <div class="detail-item">
+                            <span>Feels like:</span>
+                            <span id="feels-like"></span>
+                        </div>
+                        <div class="detail-item">
+                            <span>Humidity:</span>
+                            <span id="humidity"></span>
+                        </div>
+                        <div class="detail-item">
+                            <span>Wind Speed:</span>
+                            <span id="wind-speed"></span>
+                        </div>
+                        <div class="detail-item">
+                            <span>Pressure:</span>
+                            <span id="pressure"></span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 5-Day Forecast -->
+            <section id="forecast" class="forecast-section hidden">
+                <h2>5-Day Forecast</h2>
+                <div id="forecast-cards" class="forecast-cards"></div>
+            </section>
+
+            <!-- Error Message -->
+            <div id="error-message" class="error hidden">
+                City not found. Please try again.
+            </div>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
