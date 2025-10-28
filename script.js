@@ -1,181 +1,353 @@
-class WeatherDashboard {
+// Main application controller
+class DocumentIntelligenceApp {
     constructor() {
-        this.apiKey = 'YOUR_API_KEY_HERE'; // Replace with your OpenWeatherMap API key
-        this.baseUrl = 'https://api.openweathermap.org/data/2.5';
-        this.recentSearches = JSON.parse(localStorage.getItem('recentSearches')) || [];
+        this.currentFile = null;
+        this.extractedText = '';
+        this.summary = '';
+        this.keywords = [];
+        this.sentences = [];
+        this.stopwords = new Set(STOPWORDS); // From stopwords.js
         
-        this.initializeElements();
-        this.attachEventListeners();
-        this.loadRecentSearches();
+        this.initializeEventListeners();
+        this.setTheme(localStorage.getItem('theme') || 'light');
     }
 
-    initializeElements() {
-        this.cityInput = document.getElementById('city-input');
-        this.searchBtn = document.getElementById('search-btn');
-        this.currentWeather = document.getElementById('current-weather');
-        this.forecastSection = document.getElementById('forecast');
-        this.errorMessage = document.getElementById('error-message');
-        this.recentSearchesContainer = document.getElementById('recent-searches');
+    // Initialize all event listeners
+    initializeEventListeners() {
+        // File upload handling
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const uploadButton = document.getElementById('uploadButton');
+        const analyzeButton = document.getElementById('analyzeButton');
         
-        // Current weather elements
-        this.cityName = document.getElementById('city-name');
-        this.currentTemp = document.getElementById('current-temp');
-        this.weatherDescription = document.getElementById('weather-description');
-        this.feelsLike = document.getElementById('feels-like');
-        this.humidity = document.getElementById('humidity');
-        this.windSpeed = document.getElementById('wind-speed');
-        this.pressure = document.getElementById('pressure');
+        uploadButton.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
         
-        // Forecast container
-        this.forecastCards = document.getElementById('forecast-cards');
-    }
-
-    attachEventListeners() {
-        this.searchBtn.addEventListener('click', () => this.searchWeather());
-        this.cityInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.searchWeather();
+        // Drag and drop handling
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('drag-over');
         });
-    }
-
-    async searchWeather() {
-        const city = this.cityInput.value.trim();
-        if (!city) return;
-
-        try {
-            this.hideError();
-            await this.fetchWeatherData(city);
-            this.addToRecentSearches(city);
-            this.cityInput.value = '';
-        } catch (error) {
-            this.showError();
-            console.error('Error fetching weather data:', error);
-        }
-    }
-
-    async fetchWeatherData(city) {
-        // Fetch current weather
-        const currentWeatherUrl = `${this.baseUrl}/weather?q=${city}&appid=${this.apiKey}&units=metric`;
-        const currentResponse = await fetch(currentWeatherUrl);
         
-        if (!currentResponse.ok) {
-            throw new Error('City not found');
-        }
-
-        const currentData = await currentResponse.json();
-
-        // Fetch 5-day forecast
-        const forecastUrl = `${this.baseUrl}/forecast?q=${city}&appid=${this.apiKey}&units=metric`;
-        const forecastResponse = await fetch(forecastUrl);
-        const forecastData = await forecastResponse.json();
-
-        this.displayCurrentWeather(currentData);
-        this.displayForecast(forecastData);
-    }
-
-    displayCurrentWeather(data) {
-        this.cityName.textContent = `${data.name}, ${data.sys.country}`;
-        this.currentTemp.textContent = `${Math.round(data.main.temp)}°C`;
-        this.weatherDescription.textContent = data.weather[0].description;
-        this.feelsLike.textContent = `${Math.round(data.main.feels_like)}°C`;
-        this.humidity.textContent = `${data.main.humidity}%`;
-        this.windSpeed.textContent = `${data.wind.speed} m/s`;
-        this.pressure.textContent = `${data.main.pressure} hPa`;
-
-        this.showElement(this.currentWeather);
-        this.hideElement(this.forecastSection);
-    }
-
-    displayForecast(data) {
-        this.forecastCards.innerHTML = '';
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('drag-over');
+        });
         
-        // Group forecast by day and get one reading per day
-        const dailyForecasts = {};
-        data.list.forEach(item => {
-            const date = new Date(item.dt * 1000).toLocaleDateString();
-            if (!dailyForecasts[date]) {
-                dailyForecasts[date] = item;
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('drag-over');
+            if (e.dataTransfer.files.length) {
+                this.handleFile(e.dataTransfer.files[0]);
             }
         });
-
-        // Display next 5 days
-        Object.values(dailyForecasts).slice(0, 5).forEach(day => {
-            const date = new Date(day.dt * 1000);
-            const card = this.createForecastCard(day, date);
-            this.forecastCards.appendChild(card);
-        });
-
-        this.showElement(this.forecastSection);
-    }
-
-    createForecastCard(day, date) {
-        const card = document.createElement('div');
-        card.className = 'forecast-card';
         
-        card.innerHTML = `
-            <div class="forecast-date">${date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
-            <div class="forecast-temp">${Math.round(day.main.temp)}°C</div>
-            <div class="forecast-desc">${day.weather[0].description}</div>
-            <div class="forecast-details">
-                <small>Humidity: ${day.main.humidity}%</small>
-            </div>
-        `;
-
-        return card;
+        analyzeButton.addEventListener('click', () => this.analyzeDocument());
+        
+        // Theme toggle
+        document.getElementById('themeToggle').addEventListener('click', () => this.toggleTheme());
+        
+        // Q&A handling
+        document.getElementById('askButton').addEventListener('click', () => this.answerQuestion());
+        document.getElementById('questionInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.answerQuestion();
+        });
     }
 
-    addToRecentSearches(city) {
-        // Remove if already exists
-        this.recentSearches = this.recentSearches.filter(item => 
-            item.toLowerCase() !== city.toLowerCase()
+    // Handle file selection from input
+    handleFileSelect(event) {
+        if (event.target.files.length) {
+            this.handleFile(event.target.files[0]);
+        }
+    }
+
+    // Process the selected file
+    handleFile(file) {
+        // Validate file type
+        const fileType = file.name.split('.').pop().toLowerCase();
+        if (!['txt', 'pdf'].includes(fileType)) {
+            alert('Please select a .txt or .pdf file');
+            return;
+        }
+        
+        this.currentFile = file;
+        
+        // Update UI to show file info
+        document.getElementById('fileName').textContent = file.name;
+        document.getElementById('fileInfo').style.display = 'block';
+        
+        // Clear previous results
+        document.getElementById('resultsSection').style.display = 'none';
+        document.getElementById('textPreview').textContent = '';
+        document.getElementById('summaryContent').textContent = '';
+        document.getElementById('keywordsContent').innerHTML = '';
+        document.getElementById('answerContent').textContent = '';
+    }
+
+    // Show loading indicator
+    showLoading() {
+        document.getElementById('loadingOverlay').style.display = 'flex';
+    }
+
+    // Hide loading indicator
+    hideLoading() {
+        document.getElementById('loadingOverlay').style.display = 'none';
+    }
+
+    // Main analysis function
+    async analyzeDocument() {
+        if (!this.currentFile) {
+            alert('Please select a file first');
+            return;
+        }
+        
+        this.showLoading();
+        
+        try {
+            // Extract text based on file type
+            if (this.currentFile.name.endsWith('.txt')) {
+                this.extractedText = await this.extractTextFromTxt(this.currentFile);
+            } else if (this.currentFile.name.endsWith('.pdf')) {
+                this.extractedText = await this.extractTextFromPdf(this.currentFile);
+            }
+            
+            // Update document preview
+            document.getElementById('textPreview').textContent = this.extractedText;
+            
+            // Process the text
+            this.sentences = this.splitIntoSentences(this.extractedText);
+            this.summary = this.generateSummary(this.extractedText);
+            this.keywords = this.extractKeywords(this.extractedText);
+            
+            // Update UI with results
+            this.displayResults();
+            
+            // Show results section
+            document.getElementById('resultsSection').style.display = 'block';
+            
+        } catch (error) {
+            console.error('Error analyzing document:', error);
+            alert('Error processing document. Please try again.');
+        } finally {
+            this.hideLoading();
+        }
+    }
+
+    // Extract text from TXT file
+    extractTextFromTxt(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = (e) => reject(e);
+            reader.readAsText(file);
+        });
+    }
+
+    // Extract text from PDF file using PDF.js
+    async extractTextFromPdf(file) {
+        return new Promise((resolve, reject) => {
+            const fileReader = new FileReader();
+            
+            fileReader.onload = async function() {
+                try {
+                    const typedarray = new Uint8Array(this.result);
+                    
+                    // Load the PDF document
+                    const pdf = await pdfjsLib.getDocument(typedarray).promise;
+                    
+                    let fullText = '';
+                    
+                    // Extract text from each page
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const page = await pdf.getPage(i);
+                        const textContent = await page.getTextContent();
+                        const pageText = textContent.items.map(item => item.str).join(' ');
+                        fullText += pageText + '\n';
+                    }
+                    
+                    resolve(fullText);
+                } catch (error) {
+                    reject(error);
+                }
+            };
+            
+            fileReader.onerror = (error) => reject(error);
+            fileReader.readAsArrayBuffer(file);
+        });
+    }
+
+    // Split text into sentences using compromise.js
+    splitIntoSentences(text) {
+        const doc = nlp(text);
+        return doc.sentences().out('array');
+    }
+
+    // Generate summary using word frequency heuristic
+    generateSummary(text, maxSentences = 5) {
+        if (!text.trim()) return '';
+        
+        // Split into sentences
+        const sentences = this.splitIntoSentences(text);
+        if (sentences.length <= maxSentences) {
+            return sentences.join(' ');
+        }
+        
+        // Calculate word frequencies
+        const wordFrequencies = this.calculateWordFrequencies(text);
+        
+        // Score sentences based on word frequencies
+        const sentenceScores = sentences.map(sentence => {
+            const words = this.tokenizeText(sentence);
+            let score = 0;
+            
+            words.forEach(word => {
+                if (wordFrequencies[word]) {
+                    score += wordFrequencies[word];
+                }
+            });
+            
+            return {
+                sentence,
+                score: score / words.length || 0 // Normalize by sentence length
+            };
+        });
+        
+        // Sort sentences by score and take top ones
+        const topSentences = sentenceScores
+            .sort((a, b) => b.score - a.score)
+            .slice(0, maxSentences)
+            .sort((a, b) => 
+                sentences.indexOf(a.sentence) - sentences.indexOf(b.sentence)
+            );
+        
+        return topSentences.map(s => s.sentence).join(' ');
+    }
+
+    // Calculate word frequencies for a given text
+    calculateWordFrequencies(text) {
+        const words = this.tokenizeText(text);
+        const frequencies = {};
+        
+        words.forEach(word => {
+            if (!this.stopwords.has(word.toLowerCase()) && word.length > 2) {
+                frequencies[word] = (frequencies[word] || 0) + 1;
+            }
+        });
+        
+        return frequencies;
+    }
+
+    // Extract keywords from text
+    extractKeywords(text, maxKeywords = 15) {
+        const wordFrequencies = this.calculateWordFrequencies(text);
+        
+        // Sort by frequency and get top keywords
+        return Object.entries(wordFrequencies)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, maxKeywords)
+            .map(([word]) => word);
+    }
+
+    // Tokenize text into words
+    tokenizeText(text) {
+        const doc = nlp(text);
+        return doc.terms().out('array')
+            .map(term => term.toLowerCase().replace(/[^\w]/g, ''))
+            .filter(term => term.length > 0);
+    }
+
+    // Display analysis results in UI
+    displayResults() {
+        // Display summary
+        document.getElementById('summaryContent').textContent = this.summary;
+        
+        // Display keywords
+        const keywordsContainer = document.getElementById('keywordsContent');
+        keywordsContainer.innerHTML = '';
+        
+        this.keywords.forEach(keyword => {
+            const keywordElement = document.createElement('span');
+            keywordElement.className = 'keyword';
+            keywordElement.textContent = keyword;
+            keywordsContainer.appendChild(keywordElement);
+        });
+    }
+
+    // Answer question based on document content
+    answerQuestion() {
+        const questionInput = document.getElementById('questionInput');
+        const question = questionInput.value.trim();
+        
+        if (!question) {
+            alert('Please enter a question');
+            return;
+        }
+        
+        if (!this.extractedText) {
+            alert('Please analyze a document first');
+            return;
+        }
+        
+        const answer = this.findAnswer(question);
+        document.getElementById('answerContent').textContent = answer;
+    }
+
+    // Find answer to question in document
+    findAnswer(question) {
+        // Extract keywords from question
+        const questionKeywords = this.tokenizeText(question)
+            .filter(word => !this.stopwords.has(word) && word.length > 2);
+        
+        if (questionKeywords.length === 0) {
+            return "I couldn't identify any meaningful keywords in your question. Please try rephrasing.";
+        }
+        
+        // Score sentences based on keyword matches
+        const sentenceScores = this.sentences.map(sentence => {
+            const sentenceWords = this.tokenizeText(sentence);
+            let score = 0;
+            
+            questionKeywords.forEach(keyword => {
+                if (sentenceWords.includes(keyword)) {
+                    score += 1;
+                }
+            });
+            
+            return {
+                sentence,
+                score
+            };
+        });
+        
+        // Find the sentence with the highest score
+        const bestMatch = sentenceScores.reduce((best, current) => 
+            current.score > best.score ? current : best, 
+            { sentence: '', score: 0 }
         );
         
-        // Add to beginning
-        this.recentSearches.unshift(city);
+        if (bestMatch.score === 0) {
+            return "I couldn't find a relevant answer to your question in the document.";
+        }
         
-        // Keep only last 5 searches
-        this.recentSearches = this.recentSearches.slice(0, 5);
+        return bestMatch.sentence;
+    }
+
+    // Theme management
+    toggleTheme() {
+        const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+        const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+        this.setTheme(newTheme);
+    }
+
+    setTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('theme', theme);
         
-        // Save to localStorage
-        localStorage.setItem('recentSearches', JSON.stringify(this.recentSearches));
-        
-        this.loadRecentSearches();
-    }
-
-    loadRecentSearches() {
-        this.recentSearchesContainer.innerHTML = '';
-        
-        this.recentSearches.forEach(city => {
-            const chip = document.createElement('div');
-            chip.className = 'recent-search';
-            chip.textContent = city;
-            chip.addEventListener('click', () => {
-                this.cityInput.value = city;
-                this.searchWeather();
-            });
-            this.recentSearchesContainer.appendChild(chip);
-        });
-    }
-
-    showElement(element) {
-        element.classList.remove('hidden');
-    }
-
-    hideElement(element) {
-        element.classList.add('hidden');
-    }
-
-    showError() {
-        this.hideElement(this.currentWeather);
-        this.hideElement(this.forecastSection);
-        this.showElement(this.errorMessage);
-    }
-
-    hideError() {
-        this.hideElement(this.errorMessage);
+        const themeButton = document.getElementById('themeToggle');
+        themeButton.textContent = theme === 'light' ? '🌙 Dark Mode' : '☀️ Light Mode';
     }
 }
 
-// Initialize the app when DOM is loaded
+// Initialize the application when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    new WeatherDashboard();
+    new DocumentIntelligenceApp();
 });

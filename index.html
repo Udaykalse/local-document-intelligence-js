@@ -3,67 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Weather Dashboard</title>
+    <title>Local Document Intelligence System</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>🌤️ Weather Dashboard</h1>
-        </header>
-
-        <div class="search-section">
-            <div class="search-container">
-                <input type="text" id="city-input" placeholder="Enter city name...">
-                <button id="search-btn">Search</button>
-            </div>
-            <div id="recent-searches" class="recent-searches"></div>
+    <header>
+        <h1>Local Document Intelligence</h1>
+        <p>Analyze documents offline - no API keys or external services</p>
+        <div class="theme-toggle">
+            <button id="themeToggle">🌙 Dark Mode</button>
         </div>
+    </header>
 
-        <main>
-            <!-- Current Weather -->
-            <section id="current-weather" class="weather-card hidden">
-                <h2>Current Weather</h2>
-                <div class="weather-info">
-                    <div class="main-info">
-                        <h3 id="city-name"></h3>
-                        <div id="current-temp" class="temperature"></div>
-                        <div id="weather-description" class="description"></div>
+    <main class="container">
+        <!-- File Upload Section -->
+        <section class="upload-section">
+            <div class="upload-area" id="uploadArea">
+                <input type="file" id="fileInput" accept=".txt,.pdf" hidden>
+                <div class="upload-content">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    <h3>Upload Document</h3>
+                    <p>Drag & drop or click to select a .txt or .pdf file</p>
+                    <button id="uploadButton">Select File</button>
+                </div>
+            </div>
+            <div class="file-info" id="fileInfo" style="display: none;">
+                <h3>Selected File: <span id="fileName"></span></h3>
+                <button id="analyzeButton">Analyze Document</button>
+            </div>
+        </section>
+
+        <!-- Analysis Results Section -->
+        <section class="results-section" id="resultsSection" style="display: none;">
+            <div class="panel-container">
+                <!-- Document Preview Panel -->
+                <div class="panel document-preview">
+                    <h2>Document Preview</h2>
+                    <div class="panel-content">
+                        <div class="text-preview" id="textPreview"></div>
                     </div>
-                    <div class="details">
-                        <div class="detail-item">
-                            <span>Feels like:</span>
-                            <span id="feels-like"></span>
+                </div>
+
+                <!-- Summary Panel -->
+                <div class="panel summary">
+                    <h2>Summary</h2>
+                    <div class="panel-content">
+                        <div id="summaryContent"></div>
+                    </div>
+                </div>
+
+                <!-- Insights Panel -->
+                <div class="panel insights">
+                    <h2>Insights</h2>
+                    <div class="panel-content">
+                        <div class="keywords-section">
+                            <h3>Keywords</h3>
+                            <div id="keywordsContent"></div>
                         </div>
-                        <div class="detail-item">
-                            <span>Humidity:</span>
-                            <span id="humidity"></span>
-                        </div>
-                        <div class="detail-item">
-                            <span>Wind Speed:</span>
-                            <span id="wind-speed"></span>
-                        </div>
-                        <div class="detail-item">
-                            <span>Pressure:</span>
-                            <span id="pressure"></span>
+                        <div class="qa-section">
+                            <h3>Question & Answer</h3>
+                            <div class="qa-input">
+                                <input type="text" id="questionInput" placeholder="Ask a question about the document...">
+                                <button id="askButton">Ask</button>
+                            </div>
+                            <div id="answerContent"></div>
                         </div>
                     </div>
                 </div>
-            </section>
-
-            <!-- 5-Day Forecast -->
-            <section id="forecast" class="forecast-section hidden">
-                <h2>5-Day Forecast</h2>
-                <div id="forecast-cards" class="forecast-cards"></div>
-            </section>
-
-            <!-- Error Message -->
-            <div id="error-message" class="error hidden">
-                City not found. Please try again.
             </div>
-        </main>
+        </section>
+    </main>
+
+    <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+        <div class="loading-spinner"></div>
+        <p>Processing document...</p>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <script src="https://unpkg.com/compromise@14.11.3/builds/compromise.min.js"></script>
+    <script src="./lib/stopwords.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
